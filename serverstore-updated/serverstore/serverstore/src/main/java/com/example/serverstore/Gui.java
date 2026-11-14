@@ -195,7 +195,7 @@ public final class Gui {
         }
         m.set(45, Util.icon(Items.ARROW, 1, "Back", ChatFormatting.RED, null), (pl, t) -> main(pl));
         m.set(49, Util.icon(Items.HOPPER, 1, "Collect all", ChatFormatting.GREEN,
-                List.of("Take everything that fits.", "The rest stays here and is delivered", "automatically once you have room.")), (pl, t) -> {
+                List.of("Take everything that fits.", "The rest stays here and is delivered".")), (pl, t) -> {
             Mail.collectAll(pl);
             drawMailbox(m, pl);
         });
