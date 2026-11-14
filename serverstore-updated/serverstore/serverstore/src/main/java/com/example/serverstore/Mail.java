@@ -14,8 +14,8 @@ import java.util.UUID;
 /**
  * The mailbox. Every purchase, payout and refund goes through here.
  * Items are handed over right away if they fit. Anything that does not fit (full inventory) or whose
- * owner is offline is held in store.json and delivered automatically as soon as the player is online
- * AND has room. Nothing is ever dropped on the floor.
+ * owner is offline is held in store.json until the player collects it from /mailbox.
+ * Nothing is ever dropped on the floor and nothing is handed over automatically later.
  */
 public final class Mail {
     private static final long REMIND_EVERY_MS = 30_000;
@@ -80,8 +80,7 @@ public final class Mail {
             hold(uuid, itemId, left);
             Data.save();
             if (p != null && item != Items.AIR) {
-                Util.msg(p, "Your inventory is full! " + left + "x " + nice(itemId) + " is waiting in your /mailbox.", ChatFormatting.RED);
-                Util.msg(p, "Clear some space and it will be delivered to you automatically.", ChatFormatting.YELLOW);
+                Util.msg(p, "Your inventory is full! " + left + "x " + nice(itemId) + " was sent to your mailbox - check your /mailbox!", ChatFormatting.RED);
                 LAST_REMINDER.put(p.getUUID(), System.currentTimeMillis());
             }
         }
@@ -117,38 +116,29 @@ public final class Mail {
         return changed;
     }
 
-    /** Runs once a second: delivers waiting items to online players as soon as they have room. */
+    /** Runs once a second: reminds players who have items waiting. Nothing is handed over automatically. */
     public static void tick() {
         if (Data.store.pending.isEmpty()) return;
         long now = System.currentTimeMillis();
-        boolean changed = false;
         for (String uuid : new ArrayList<>(Data.store.pending.keySet())) {
             ServerPlayer p = Auctions.online(uuid);
             if (p == null) continue;
-            if (drain(p)) changed = true;
             int left = waitingCount(uuid);
             if (left <= 0) { LAST_REMINDER.remove(p.getUUID()); continue; }
             Long last = LAST_REMINDER.get(p.getUUID());
             if (last == null || now - last >= REMIND_EVERY_MS) {
-                Util.msg(p, "You still have " + left + " item(s) waiting in your /mailbox - make some room in your inventory!", ChatFormatting.YELLOW);
+                Util.msg(p, "You have " + left + " item(s) waiting - check your /mailbox!", ChatFormatting.YELLOW);
                 LAST_REMINDER.put(p.getUUID(), now);
             }
         }
-        if (changed) Data.save();
     }
 
-    /** When a player joins: deliver what piled up while they were away. */
+    /** When a player joins: tell them what piled up while they were away. */
     public static void onLogin(ServerPlayer p) {
-        String uuid = p.getUUID().toString();
-        if (waitingCount(uuid) <= 0) return;
-        Util.msg(p, "You have items waiting from while you were away!", ChatFormatting.GOLD);
-        if (drain(p)) Data.save();
-        int left = waitingCount(uuid);
-        if (left > 0) {
-            Util.msg(p, "Your inventory is full! " + left + " item(s) are still waiting in your /mailbox.", ChatFormatting.RED);
-            Util.msg(p, "Clear some space and they will be delivered automatically.", ChatFormatting.YELLOW);
-            LAST_REMINDER.put(p.getUUID(), System.currentTimeMillis());
-        }
+        int left = waitingCount(p.getUUID().toString());
+        if (left <= 0) return;
+        Util.msg(p, "You have " + left + " item(s) waiting in your mailbox - check your /mailbox!", ChatFormatting.GOLD);
+        LAST_REMINDER.put(p.getUUID(), System.currentTimeMillis());
     }
 
     // ---------------------------------------------------------------- manual collecting (mailbox menu)
